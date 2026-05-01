@@ -467,7 +467,19 @@ void jsr(uint16_t i)
  * @param i The instruction.  The bits of the instruction we are
  *   executing.
  */
-void rti(uint16_t i) {}
+void rti(uint16_t i) 
+{
+  reg[PSR] = mem_read(reg[R6]);
+  pop();
+  reg[RPC] = mem_read(reg[R6]);
+  pop();
+
+  if (is_user_mode())
+  {
+    reg[SSP] = reg[R6];
+    reg[R6] = reg[USP];
+  }
+}
 
 /** @brief reserved
  *
@@ -493,7 +505,22 @@ void res(uint16_t i) {}
  *   executing.  The low 7 bits i[7:0] contain the trap service vector
  *   index to be invoked.
  */
-void trap(uint16_t i) {}
+void trap(uint16_t i)
+{
+  uint16_t t = reg[PSR];
+
+  if (is_user_mode())
+  {
+    reg[USP] = reg[R6];
+    reg[R6] = reg[SSP];
+    supervisor_mode();
+  }
+
+  push(reg[RPC]);
+  push(t);
+
+  reg[RPC] = mem_read(TRP(i));
+}
 
 /**
  * LC-3 instruction microcode store / lookup table.  Need to define array
