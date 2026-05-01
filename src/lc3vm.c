@@ -49,6 +49,10 @@ uint16_t PC_START = 0x3000;
  */
 uint16_t mem_read(uint16_t address)
 {
+  if (address == KBDR_ADDR)
+  {
+    iomap[KBSR] &= 0x7FFF;
+  }
   return mem[address];
 }
 
@@ -69,6 +73,10 @@ uint16_t mem_read(uint16_t address)
  */
 void mem_write(uint16_t address, uint16_t val)
 {
+  if (address == DDR_ADDR)
+  {
+    iomap[DSR] &= 0x7FFF;
+  }
   mem[address] = val;
 }
 
