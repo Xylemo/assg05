@@ -49,6 +49,12 @@ uint16_t PC_START = 0x3000;
  */
 uint16_t mem_read(uint16_t address)
 {
+  if (is_user_mode() && (address < 0x3000 || address > 0xFDFF))
+  {
+    except(0x02);
+    return 0;
+  }
+
   if (address == KBDR_ADDR)
   {
     iomap[KBSR] &= 0x7FFF;
@@ -73,6 +79,12 @@ uint16_t mem_read(uint16_t address)
  */
 void mem_write(uint16_t address, uint16_t val)
 {
+  if (is_user_mode() && (address < 0x3000 || address > 0xFDFF))
+  {
+    except(0x02);
+    return;
+  }
+
   if (address == DDR_ADDR)
   {
     iomap[DSR] &= 0x7FFF;
@@ -477,12 +489,20 @@ void jsr(uint16_t i)
  */
 void rti(uint16_t i) 
 {
-  reg[PSR] = mem_read(reg[R6]);
-  pop();
-  reg[RPC] = mem_read(reg[R6]);
-  pop();
 
   if (is_user_mode())
+  {
+    except(0x00);
+    return;
+  }
+  uint16_t psr = mem_read(reg[R6]);
+  pop();
+  uint16_t rpc = mem_read(reg[R6]);
+  pop();
+  reg[PSR] = psr;
+  reg[RPC] = rpc;
+
+    if (is_user_mode())
   {
     reg[SSP] = reg[R6];
     reg[R6] = reg[USP];
@@ -499,7 +519,10 @@ void rti(uint16_t i)
  *   destination and source register operands, and to extract the
  *   second source register or the immediate value encoded in the
  */
-void res(uint16_t i) {}
+void res(uint16_t i)
+{
+  except(0x01);
+}
 
 /** @brief trap instruction
  *
@@ -908,3 +931,19 @@ bool is_running()
  *   the exception vector number we use to index into the exception service
  *   vector table.
  */
+void except(uint16_t i)
+{
+  uint16_t t = reg[PSR];
+
+  if (is_user_mode())
+  {
+    reg[USP] = reg[R6];
+    reg[R6] = reg[SSP];
+    supervisor_mode();
+  }
+
+  push(reg[RPC]);
+  push(t);
+
+  reg[RPC] = mem_read(0x0100 + TRP(i));
+}
